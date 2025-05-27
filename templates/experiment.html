@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>DDT Experiment</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <div id="container"></div>
+    <script>const CONFIG = {{ config_json | safe }};</script>
+    <script src="{{ url_for('static', filename='main.js') }}"></script>
+</body>
+</html>

@@ -2,6 +2,7 @@
 - First, install PsychoPy (https://www.psychopy.org/download.html) and ADOpy (from GitHub: https://github.com/adopy/adopy, version 0.4.1)
 - Run "ddt_ado_new.py" on a Python console to start the task.
 - Modify the participant ID and the number of trials in the subject information box as desired.
+- Alternatively, to run a web-based interface (no PsychoPy required), install Flask (pip install flask), then run "python ddt_web.py" and open http://localhost:5050/ in your browser.
 
 In the instruction screen, press <space> to proceed to the next screen.
 You may revise "instructions.yml" to change the instructions.

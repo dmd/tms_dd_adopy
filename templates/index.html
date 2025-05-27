@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>DDT Experiment Setup</title>
+    <style>
+        body { font-family: sans-serif; padding: 2em; }
+        label { display: block; margin-bottom: 0.5em; }
+    </style>
+</head>
+<body>
+    <h1>Delayed Discounting Task</h1>
+    <form action="{{ url_for('start') }}" method="post">
+        <label>Subject ID:
+            <input type="number" name="subject_id" required>
+        </label>
+        <label>Session:
+            <input type="number" name="session" required>
+        </label>
+        <label>Number of train trials:
+            <input type="number" name="num_train_trials" value="5" required>
+        </label>
+        <label>Number of main trials:
+            <input type="number" name="num_main_trials" value="20" required>
+        </label>
+        <label>
+            <input type="checkbox" name="show_tutorial" checked>
+            Show tutorial
+        </label>
+        <button type="submit">Start Experiment</button>
+    </form>
+</body>
+</html>

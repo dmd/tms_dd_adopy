@@ -4,7 +4,11 @@ import random
 
 from pathlib import Path
 from enum import Enum
-import numpy as np 
+import numpy as np
+if not hasattr(np, 'int'):
+    np.int = int
+if not hasattr(np, 'float'):
+    np.float = float
 import pandas as pd
 
 from datetime import datetime
