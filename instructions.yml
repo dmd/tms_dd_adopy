@@ -1,27 +1,27 @@
 intro: |
   Thank you for participating in the experiment.
   
-  Press the <space> key when you are ready.
+  Press the [space] key when you are ready.
 
 train_before:
-- >
+- ]
   In this task, you will be asked to choose between different amounts of money given to you now or after a delay.
   
   These are hypothetical choices, but please choose your answer as if the items were to be delivered as described.
 
-- >
-  Press <z> if you prefer the option on the left
+- ]
+  Press [z] if you prefer the option on the left
   
-  and </> if you prefer the option on the right.
-- >
+  and [/] if you prefer the option on the right.
+- ]
   There are no correct answers in this task.
   
   Please just choose what you prefer.
-- >
+- ]
   There will be a short practice session to help you understand the task.
   
   
-  Press <space> key when you are ready.
+  Press [space] key when you are ready.
   
 train_after: |
   You finished the practice session.
@@ -29,14 +29,14 @@ train_after: |
   Please let the experimenter know if you have any question.
 
 
-  Press the <space> key to proceed to the main session.
+  Press the [space] key to proceed to the main session.
 
 main_before: |
 
   The main session has {} trials.
   
   
-  Press the <space> key when you are ready.
+  Press the [space] key when you are ready.
 
 outro: |
   You finished the task.
