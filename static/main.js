@@ -8,7 +8,7 @@ async function runExperiment() {
                 .split('\n')
                 .map(line => `<p>${line}</p>`)
                 .join('');
-            container.innerHTML = `<div class="screen">${html}</div>`;
+            container.innerHTML = `<div class="screen"><div>${html}</div></div>`;
             window.scrollTo(0, 0);
             function onKey(e) {
                 if (e.key === ' ' || e.key === 'Enter') {

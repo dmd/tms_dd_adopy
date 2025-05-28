@@ -24,10 +24,36 @@
             <input type="number" name="num_main_trials" value="20" required>
         </label>
         <label>
-            <input type="checkbox" name="show_tutorial" checked>
+            <input type="checkbox" name="show_tutorial">
             Show tutorial
         </label>
         <button type="submit">Start Experiment</button>
     </form>
+    
+    <script>
+        // Parse query string parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        
+        // Fields to check for query parameters
+        const fields = ['subject_id', 'session', 'num_train_trials', 'num_main_trials', 'show_tutorial'];
+        
+        fields.forEach(fieldName => {
+            const value = urlParams.get(fieldName);
+            if (value !== null) {
+                const element = document.querySelector(`[name="${fieldName}"]`);
+                if (element) {
+                    if (element.type === 'checkbox') {
+                        element.checked = value.toLowerCase() === 'true' || value === '1';
+                    } else {
+                        element.value = value;
+                    }
+                    element.readOnly = true;
+                    if (element.type === 'checkbox') {
+                        element.disabled = true;
+                    }
+                }
+            }
+        });
+    </script>
 </body>
 </html>

@@ -14,7 +14,10 @@ html, body {
     justify-content: center;
     height: 100%;
     padding: 1em;
-    text-align: center;
+}
+.screen > div {
+    width: 60%;
+    text-align: left;
 }
 .screen p {
     font-size: 2em;
