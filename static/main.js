@@ -102,7 +102,7 @@ async function runExperiment() {
             window.scrollTo(0, 0);
             const start = performance.now();
             function onKey(e) {
-                if (e.key === 'z' || e.key === '/') {
+                if (e.key === 'z' || e.key === 'm' || e.key === '/') {
                     const rt = performance.now() - start;
                     const resp_left = e.key === 'z' ? 1 : 0;
                     document.removeEventListener('keydown', onKey);

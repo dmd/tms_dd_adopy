@@ -388,7 +388,7 @@ class DdtRunner:
                          direction)
         self.window.flip()
         timer = core.Clock()
-        keys = event.waitKeys(keyList=['z', 'slash'])
+        keys = event.waitKeys(keyList=['z', 'slash', 'm'])
         rt = timer.getTime()
 
         resp_left = int(keys[0] == 'z')
