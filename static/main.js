@@ -67,15 +67,25 @@ async function runExperiment() {
 
     async function runTrials(n, mode) {
         for (let i = 0; i < n; i++) {
-            const res = await fetch(`/next_design?mode=${mode}`);
+            const res = await fetch(`/next_design?mode=${mode}&session_id=${CONFIG.session_id}`);
+            if (!res.ok) {
+                const error = await res.json();
+                alert('Session expired or invalid. Please refresh the page and start again.');
+                throw new Error(error.error || 'Session error');
+            }
             const { design, direction } = await res.json();
             await showFixation();
             const { resp_left, rt } = await showChoice(design, direction);
-            await fetch('/response', {
+            const respRes = await fetch('/response', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ mode, resp_left, direction, rt }),
+                body: JSON.stringify({ mode, resp_left, direction, rt, session_id: CONFIG.session_id }),
             });
+            if (!respRes.ok) {
+                const error = await respRes.json();
+                alert('Session expired or invalid. Please refresh the page and start again.');
+                throw new Error(error.error || 'Session error');
+            }
         }
     }
 

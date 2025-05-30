@@ -2,79 +2,142 @@
 """Web-based interface for the DDT ADO experiment, using Flask."""
 import random
 import json
+import uuid
 from pathlib import Path
 from datetime import datetime
+from threading import Lock
 
 import yaml
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, session
+from flask import make_response
 
 from ddt_core import DdtCore
 
 app = Flask(__name__)
+app.secret_key = "ddt-experiment-secret-key-change-in-production"
 
-exp = None
-config = None
-last_design = None
+# Thread-safe storage for active experiments
+experiments = {}
+experiments_lock = Lock()
 
-@app.route('/', methods=['GET'])
+
+@app.route("/", methods=["GET"])
 def index():
-    return render_template('index.html')
+    return render_template("index.html")
 
-@app.route('/start', methods=['POST'])
+
+@app.route("/start", methods=["POST"])
 def start():
-    global exp, config
-    subject = int(request.form.get('subject_id'))
-    session = int(request.form.get('session'))
-    num_train = int(request.form.get('num_train_trials'))
-    num_main = int(request.form.get('num_main_trials'))
-    show_tutorial = bool(request.form.get('show_tutorial'))
-    time_now_iso = datetime.now().isoformat().replace(':','-')[:-7]
-    path_data = Path(__file__).parent / 'data'
+    subject = int(request.form.get("subject_id"))
+    session_num = int(request.form.get("session"))
+    num_train = int(request.form.get("num_train_trials"))
+    num_main = int(request.form.get("num_main_trials"))
+    show_tutorial = bool(request.form.get("show_tutorial"))
+
+    # Generate unique session ID for this experiment
+    session_id = str(uuid.uuid4())
+
+    time_now_iso = datetime.now().isoformat().replace(":", "-")[:-7]
+    path_data = Path(__file__).parent / "data"
     path_data.mkdir(exist_ok=True)
-    path_output = path_data / f'DDT{subject:03d}_ses{session}_{time_now_iso}.csv'
-    exp = DdtCore(subject, session, path_output)
-    instr_path = Path(__file__).parent / 'instructions.yml'
-    with open(instr_path, 'r', encoding='utf-8') as f:
+    path_output = path_data / f"DDT{subject:03d}_ses{session_num}_{time_now_iso}.csv"
+
+    # Create experiment instance for this session
+    exp = DdtCore(subject, session_num, path_output)
+
+    instr_path = Path(__file__).parent / "instructions.yml"
+    with open(instr_path, "r", encoding="utf-8") as f:
         instructions = yaml.safe_load(f)
-    instructions['main_before'] = instructions['main_before'].format(num_main)
+    instructions["main_before"] = instructions["main_before"].format(num_main)
+
     config = {
-        'subject_id': subject,
-        'session': session,
-        'num_train_trials': num_train,
-        'num_main_trials': num_main,
-        'show_tutorial': show_tutorial,
-        'instructions': instructions,
+        "subject_id": subject,
+        "session": session_num,
+        "num_train_trials": num_train,
+        "num_main_trials": num_main,
+        "show_tutorial": show_tutorial,
+        "instructions": instructions,
+        "session_id": session_id,
     }
-    return render_template('experiment.html', config_json=json.dumps(config))
 
-@app.route('/next_design', methods=['GET'])
+    # Store experiment data thread-safely
+    with experiments_lock:
+        experiments[session_id] = {
+            "exp": exp,
+            "config": config,
+            "last_design": None,
+            "created_at": datetime.now(),
+        }
+
+    return render_template("experiment.html", config_json=json.dumps(config))
+
+
+@app.route("/next_design", methods=["GET"])
 def next_design():
-    global last_design
-    mode = request.args.get('mode', 'optimal')
-    engine_mode = 'random' if mode == 'train' else mode
-    design = exp.get_design(engine_mode)
-    last_design = design
+    session_id = request.args.get("session_id")
+    if not session_id or session_id not in experiments:
+        return jsonify({"error": "Invalid session"}), 400
+
+    with experiments_lock:
+        exp_data = experiments[session_id]
+        exp = exp_data["exp"]
+
+        mode = request.args.get("mode", "optimal")
+        engine_mode = "random" if mode == "train" else mode
+        design = exp.get_design(engine_mode)
+        exp_data["last_design"] = design
+
     direction = random.randint(0, 1)
-    return jsonify({'design': design, 'direction': direction})
+    return jsonify({"design": design, "direction": direction})
 
-@app.route('/response', methods=['POST'])
+
+@app.route("/response", methods=["POST"])
 def response():
-    global last_design, exp, config
     data = request.get_json()
-    mode = data.get('mode')
-    if mode == 'train':
-        last_design = None
-        return jsonify({'success': True})
-    resp_left = int(data.get('resp_left'))
-    direction = int(data.get('direction'))
-    rt = float(data.get('rt'))
-    resp_ss = resp_left if direction == 1 else 1 - resp_left
-    exp.update_and_record(last_design, resp_ss, rt)
-    last_design = None
-    finished = len(exp.df) >= config['num_main_trials']
-    if finished:
-        exp.save_record()
-    return jsonify({'finished': finished})
+    session_id = data.get("session_id")
+    if not session_id or session_id not in experiments:
+        return jsonify({"error": "Invalid session"}), 400
 
-if __name__ == '__main__':
+    with experiments_lock:
+        exp_data = experiments[session_id]
+        exp = exp_data["exp"]
+        config = exp_data["config"]
+        last_design = exp_data["last_design"]
+
+        mode = data.get("mode")
+        if mode == "train":
+            exp_data["last_design"] = None
+            return jsonify({"success": True})
+
+        resp_left = int(data.get("resp_left"))
+        direction = int(data.get("direction"))
+        rt = float(data.get("rt"))
+        resp_ss = resp_left if direction == 1 else 1 - resp_left
+
+        exp.update_and_record(last_design, resp_ss, rt)
+        exp_data["last_design"] = None
+
+        finished = len(exp.df) >= config["num_main_trials"]
+        if finished:
+            exp.save_record()
+            # Clean up completed experiment
+            del experiments[session_id]
+
+    return jsonify({"finished": finished})
+
+
+@app.before_request
+def cleanup_old_sessions():
+    """Clean up abandoned sessions older than 2 hours."""
+    with experiments_lock:
+        now = datetime.now()
+        to_remove = []
+        for sid, exp_data in experiments.items():
+            if (now - exp_data["created_at"]).total_seconds() > 7200:  # 2 hours
+                to_remove.append(sid)
+        for sid in to_remove:
+            del experiments[sid]
+
+
+if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=5050)
