@@ -64,7 +64,7 @@ The Lambda function needs these S3 permissions:
 1. **"Session expired" errors**: Fixed by implementing S3-based session storage
 2. **403 Forbidden on API calls**: Fixed by adding `/Prod/` prefix to fetch URLs
 3. **Import errors**: All required imports added at module level
-4. **Memory limits**: Increased to 1024MB for ADO computations
+4. **Memory limits**: Increased to 3008MB for ADO computations
 
 ## Development Workflow
 1. Make changes to Python/JS files in main directory

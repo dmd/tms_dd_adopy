@@ -9,7 +9,7 @@ Resources:
       Handler: ddt_web.lambda_handler
       Runtime: python3.9
       Timeout: 30
-      MemorySize: 1024
+      MemorySize: 3008
       Environment:
         Variables:
           SECRET_KEY: "flask-secret-key-for-lambda"
