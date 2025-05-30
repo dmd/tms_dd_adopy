@@ -7,7 +7,6 @@ import os
 import logging
 from pathlib import Path
 from datetime import datetime
-from threading import Lock
 import tempfile
 
 import yaml
@@ -31,6 +30,8 @@ app.secret_key = os.environ.get(
 # S3 configuration
 S3_BUCKET = "3e.org"
 s3_client = boto3.client("s3")
+
+# Note: No need for locks in Lambda - using S3 conditional writes for race condition prevention
 
 # S3-based storage for active experiments
 def save_experiment_to_s3(session_id, exp_data):
@@ -249,18 +250,93 @@ def get_experiment_data(subject_id, session):
 
 @app.route("/start", methods=["POST"])
 def start():
-    subject = int(request.form.get("subject_id"))
     session_num = int(request.form.get("session"))
     num_train = int(request.form.get("num_train_trials"))
     num_main = int(request.form.get("num_main_trials"))
-    show_tutorial = bool(request.form.get("show_tutorial"))
+    show_tutorial = request.form.get("show_tutorial") == "1"
 
     # Generate unique session ID for this experiment
     session_id = str(uuid.uuid4())
-
     time_now_iso = datetime.now().isoformat().replace(":", "-")[:-7]
+
+    # Handle subject ID assignment and file creation atomically
+    subject_id_param = request.form.get("subject_id")
+    if subject_id_param and subject_id_param.strip():
+        # Use provided subject ID
+        subject = int(subject_id_param)
+        filename = f"DDT{subject:04d}_ses{session_num}_{time_now_iso}.csv"
+    else:
+        # Atomically assign next available ID using S3 conditional writes
+        try:
+            # List all files in the S3 data directory
+            response = s3_client.list_objects_v2(Bucket=S3_BUCKET, Prefix="ddt-data/")
+            used_ids = set()
+            if 'Contents' in response:
+                for obj in response['Contents']:
+                    filename_obj = obj['Key'].split('/')[-1]  # Get just the filename
+                    # Look for pattern DDT####_ses#_timestamp.csv
+                    if filename_obj.startswith('DDT') and '_ses' in filename_obj:
+                        try:
+                            subject_id_str = filename_obj[3:7]  # Extract 4 digits after DDT
+                            if subject_id_str.isdigit():
+                                used_ids.add(int(subject_id_str))
+                        except (ValueError, IndexError):
+                            continue  # Skip files that don't match expected pattern
+            
+            # Try to claim the next available ID using conditional writes
+            subject = 1001
+            max_attempts = 100  # Prevent infinite loop
+            attempts = 0
+            
+            while attempts < max_attempts:
+                if subject not in used_ids:
+                    # Try to claim this ID with conditional write
+                    filename = f"DDT{subject:04d}_ses{session_num}_{time_now_iso}.csv"
+                    placeholder_key = f"ddt-data/{filename}"
+                    
+                    try:
+                        # Create empty file only if it doesn't exist (atomic operation)
+                        s3_client.put_object(
+                            Bucket=S3_BUCKET,
+                            Key=placeholder_key,
+                            Body=b"",
+                            ContentType='text/csv',
+                            IfNoneMatch="*"  # Only create if object doesn't exist
+                        )
+                        # Success! We claimed this ID
+                        break
+                    except s3_client.exceptions.ClientError as e:
+                        if e.response['Error']['Code'] == 'PreconditionFailed':
+                            # Someone else claimed this ID, try next one
+                            used_ids.add(subject)
+                            subject += 1
+                            if subject > 9999:  # Safety check for 4-digit limit
+                                subject = 1001
+                            attempts += 1
+                            continue
+                        else:
+                            # Other S3 error, re-raise
+                            raise
+                else:
+                    # ID already in use, try next one
+                    subject += 1
+                    if subject > 9999:  # Safety check for 4-digit limit
+                        subject = 1001
+                    attempts += 1
+            
+            if attempts >= max_attempts:
+                logger.error("Failed to assign subject ID after maximum attempts")
+                # Fallback to timestamp-based ID to ensure uniqueness
+                subject = 1001
+                filename = f"DDT{subject:04d}_ses{session_num}_{time_now_iso}.csv"
+                
+        except Exception as e:
+            logger.error(f"Error in atomic subject ID assignment: {e}")
+            # Fallback to default if there's an error
+            subject = 1001
+            filename = f"DDT{subject:04d}_ses{session_num}_{time_now_iso}.csv"
+    
     # Use temporary file for Lambda environment
-    filename = f"DDT{subject:03d}_ses{session_num}_{time_now_iso}.csv"
     path_output = Path(tempfile.gettempdir()) / filename
 
     # Create experiment instance for this session

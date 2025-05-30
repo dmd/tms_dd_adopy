@@ -12,7 +12,7 @@
     <h1>Delayed Discounting Task</h1>
     <form action="{{ url_for('start') }}" method="post">
         <label>Subject ID:
-            <input type="number" name="subject_id" id="subject_id" required readonly>
+            <input type="number" name="subject_id" id="subject_id" readonly placeholder="Auto-assigned">
         </label>
         <label>Session:
             <input type="number" name="session" value="1" required readonly>
@@ -24,7 +24,8 @@
             <input type="number" name="num_main_trials" value="40" required readonly>
         </label>
         <label>
-            <input type="checkbox" name="show_tutorial" checked disabled>
+            <input type="checkbox" id="show_tutorial_display" checked disabled>
+            <input type="hidden" name="show_tutorial" value="1">
             Show tutorial
         </label>
         <button type="submit">Start Experiment</button>
@@ -53,28 +54,21 @@
             }
         }
         
-        // Auto-populate subject ID if not provided in query string or setup
-        async function populateSubjectId() {
+        // Only populate subject ID if explicitly provided via query parameters
+        function handleSubjectId() {
             const subjectIdParam = urlParams.get('subject_id');
             const hasSetupSubjectId = setupValues && setupValues.subject_id;
             
-            if (subjectIdParam === null && !hasSetupSubjectId) {
-                try {
-                    const response = await fetch(`${window.location.origin}/Prod/next_subject_id`);
-                    if (response.ok) {
-                        const data = await response.json();
-                        document.getElementById('subject_id').value = data.next_subject_id;
-                    }
-                } catch (error) {
-                    console.error('Error fetching next subject ID:', error);
-                    // Fallback to default
-                    document.getElementById('subject_id').value = 1001;
-                }
+            if (subjectIdParam !== null || hasSetupSubjectId) {
+                // Only set if explicitly provided via URL parameters
+                const subjectId = hasSetupSubjectId ? setupValues.subject_id : subjectIdParam;
+                document.getElementById('subject_id').value = subjectId;
             }
+            // Otherwise leave empty - will be auto-assigned on form submission
         }
         
-        // Populate subject ID on page load
-        populateSubjectId();
+        // Handle subject ID on page load
+        handleSubjectId();
         
         fields.forEach(fieldName => {
             let value;
@@ -88,12 +82,19 @@
             }
             
             if (value !== null) {
-                const element = document.querySelector(`[name="${fieldName}"]`);
-                if (element) {
-                    if (element.type === 'checkbox') {
-                        element.checked = value === true || value.toString().toLowerCase() === 'true' || value === '1';
-                    } else {
-                        element.value = value;
+                if (fieldName === 'show_tutorial') {
+                    // Handle special case: display checkbox + hidden field
+                    const isChecked = value === true || value.toString().toLowerCase() === 'true' || value === '1';
+                    document.getElementById('show_tutorial_display').checked = isChecked;
+                    document.querySelector('[name="show_tutorial"]').value = isChecked ? '1' : '0';
+                } else {
+                    const element = document.querySelector(`[name="${fieldName}"]`);
+                    if (element) {
+                        if (element.type === 'checkbox') {
+                            element.checked = value === true || value.toString().toLowerCase() === 'true' || value === '1';
+                        } else {
+                            element.value = value;
+                        }
                     }
                 }
             }
