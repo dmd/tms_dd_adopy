@@ -12,19 +12,19 @@
     <h1>Delayed Discounting Task</h1>
     <form action="{{ url_for('start') }}" method="post">
         <label>Subject ID:
-            <input type="number" name="subject_id" required>
+            <input type="number" name="subject_id" id="subject_id" required readonly>
         </label>
         <label>Session:
-            <input type="number" name="session" required>
+            <input type="number" name="session" value="1" required readonly>
         </label>
         <label>Number of train trials:
-            <input type="number" name="num_train_trials" value="5" required>
+            <input type="number" name="num_train_trials" value="5" required readonly>
         </label>
         <label>Number of main trials:
-            <input type="number" name="num_main_trials" value="20" required>
+            <input type="number" name="num_main_trials" value="40" required readonly>
         </label>
         <label>
-            <input type="checkbox" name="show_tutorial">
+            <input type="checkbox" name="show_tutorial" checked disabled>
             Show tutorial
         </label>
         <button type="submit">Start Experiment</button>
@@ -37,19 +37,63 @@
         // Fields to check for query parameters
         const fields = ['subject_id', 'session', 'num_train_trials', 'num_main_trials', 'show_tutorial'];
         
+        // Check for setup parameter first
+        const setupParam = urlParams.get('setup');
+        let setupValues = null;
+        if (setupParam) {
+            const parts = setupParam.split(',');
+            if (parts.length === 5) {
+                setupValues = {
+                    subject_id: parts[0].trim(),
+                    session: parts[1].trim(),
+                    num_train_trials: parts[2].trim(),
+                    num_main_trials: parts[3].trim(),
+                    show_tutorial: parts[4].trim() === '1'
+                };
+            }
+        }
+        
+        // Auto-populate subject ID if not provided in query string or setup
+        async function populateSubjectId() {
+            const subjectIdParam = urlParams.get('subject_id');
+            const hasSetupSubjectId = setupValues && setupValues.subject_id;
+            
+            if (subjectIdParam === null && !hasSetupSubjectId) {
+                try {
+                    const response = await fetch(`${window.location.origin}/next_subject_id`);
+                    if (response.ok) {
+                        const data = await response.json();
+                        document.getElementById('subject_id').value = data.next_subject_id;
+                    }
+                } catch (error) {
+                    console.error('Error fetching next subject ID:', error);
+                    // Fallback to default
+                    document.getElementById('subject_id').value = 1001;
+                }
+            }
+        }
+        
+        // Populate subject ID on page load
+        populateSubjectId();
+        
         fields.forEach(fieldName => {
-            const value = urlParams.get(fieldName);
+            let value;
+            
+            // Use setup values if available, otherwise use individual query parameters
+            if (setupValues && setupValues.hasOwnProperty(fieldName)) {
+                value = setupValues[fieldName];
+            } else {
+                const paramValue = urlParams.get(fieldName);
+                value = paramValue !== null ? paramValue : null;
+            }
+            
             if (value !== null) {
                 const element = document.querySelector(`[name="${fieldName}"]`);
                 if (element) {
                     if (element.type === 'checkbox') {
-                        element.checked = value.toLowerCase() === 'true' || value === '1';
+                        element.checked = value === true || value.toString().toLowerCase() === 'true' || value === '1';
                     } else {
                         element.value = value;
-                    }
-                    element.readOnly = true;
-                    if (element.type === 'checkbox') {
-                        element.disabled = true;
                     }
                 }
             }

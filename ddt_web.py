@@ -26,6 +26,40 @@ def index():
     return render_template("index.html")
 
 
+@app.route("/next_subject_id", methods=["GET"])
+def next_subject_id():
+    """Get the next available 4-digit subject ID by checking filesystem data directory"""
+    try:
+        data_dir = Path(__file__).parent / "data"
+        data_dir.mkdir(exist_ok=True)
+        
+        used_ids = set()
+        for csv_file in data_dir.glob("*.csv"):
+            filename = csv_file.name
+            # Look for pattern DDT####_ses#_timestamp.csv
+            if filename.startswith('DDT') and '_ses' in filename:
+                try:
+                    subject_id_str = filename[3:7]  # Extract 4 digits after DDT
+                    if subject_id_str.isdigit():
+                        used_ids.add(int(subject_id_str))
+                except (ValueError, IndexError):
+                    continue  # Skip files that don't match expected pattern
+        
+        # Find the next available 4-digit ID starting from 1001
+        next_id = 1001
+        while next_id in used_ids:
+            next_id += 1
+            if next_id > 9999:  # Safety check for 4-digit limit
+                next_id = 1001
+                break
+        
+        return jsonify({"next_subject_id": next_id})
+        
+    except Exception as e:
+        # Return a default if there's an error
+        return jsonify({"next_subject_id": 1001})
+
+
 @app.route("/start", methods=["POST"])
 def start():
     subject = int(request.form.get("subject_id"))
@@ -40,7 +74,7 @@ def start():
     time_now_iso = datetime.now().isoformat().replace(":", "-")[:-7]
     path_data = Path(__file__).parent / "data"
     path_data.mkdir(exist_ok=True)
-    path_output = path_data / f"DDT{subject:03d}_ses{session_num}_{time_now_iso}.csv"
+    path_output = path_data / f"DDT{subject:04d}_ses{session_num}_{time_now_iso}.csv"
 
     # Create experiment instance for this session
     exp = DdtCore(subject, session_num, path_output)

@@ -67,6 +67,11 @@ async function runExperiment() {
 
     async function runTrials(n, mode) {
         for (let i = 0; i < n; i++) {
+            // Show initial fixation for first trial
+            if (i === 0) {
+                await showFixation();
+            }
+            
             const res = await fetch(`/next_design?mode=${mode}&session_id=${CONFIG.session_id}`);
             if (!res.ok) {
                 const error = await res.json();
@@ -74,8 +79,10 @@ async function runExperiment() {
                 throw new Error(error.error || 'Session error');
             }
             const { design, direction } = await res.json();
-            await showFixation();
+            
             const { resp_left, rt } = await showChoice(design, direction);
+            // Note: fixation cross is now shown immediately when user presses key
+            
             const respRes = await fetch('/response', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -86,6 +93,9 @@ async function runExperiment() {
                 alert('Session expired or invalid. Please refresh the page and start again.');
                 throw new Error(error.error || 'Session error');
             }
+            
+            // The fixation cross stays visible while processing the next trial
+            // This provides continuous feedback during the 1-2 second ADO computation
         }
     }
 
@@ -116,6 +126,11 @@ async function runExperiment() {
                     const rt = performance.now() - start;
                     const resp_left = e.key === 'z' ? 1 : 0;
                     document.removeEventListener('keydown', onKey);
+                    
+                    // Immediately show fixation cross for user feedback
+                    container.innerHTML = '<div class="fixation">+</div>';
+                    window.scrollTo(0, 0);
+                    
                     resolve({ resp_left, rt });
                 }
             }
