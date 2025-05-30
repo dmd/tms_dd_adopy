@@ -98,6 +98,41 @@ def index():
     logger.info("Index page accessed")
     return render_template("index.html")
 
+@app.route("/next_subject_id", methods=["GET"])
+def next_subject_id():
+    """Get the next available 4-digit subject ID by checking S3 data directory"""
+    try:
+        # List all files in the data directory
+        response = s3_client.list_objects_v2(Bucket=S3_BUCKET, Prefix="ddt-data/")
+        
+        used_ids = set()
+        if 'Contents' in response:
+            for obj in response['Contents']:
+                filename = obj['Key'].split('/')[-1]  # Get just the filename
+                # Look for pattern DDT####_ses#_timestamp.csv
+                if filename.startswith('DDT') and '_ses' in filename:
+                    try:
+                        subject_id_str = filename[3:7]  # Extract 4 digits after DDT
+                        if subject_id_str.isdigit():
+                            used_ids.add(int(subject_id_str))
+                    except (ValueError, IndexError):
+                        continue  # Skip files that don't match expected pattern
+        
+        # Find the next available 4-digit ID starting from 1001
+        next_id = 1001
+        while next_id in used_ids:
+            next_id += 1
+            if next_id > 9999:  # Safety check for 4-digit limit
+                next_id = 1001
+                break
+        
+        return jsonify({"next_subject_id": next_id})
+        
+    except Exception as e:
+        logger.error(f"Error getting next subject ID: {e}")
+        # Return a default if there's an error
+        return jsonify({"next_subject_id": 1001})
+
 @app.route("/debug", methods=["GET"])
 def debug():
     """Debug endpoint to test S3 operations"""
@@ -166,6 +201,48 @@ def debug_session(session_id):
         
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+@app.route("/data/<int:subject_id>/<int:session>", methods=["GET"])
+def get_experiment_data(subject_id, session):
+    """Retrieve experiment data for a specific subject and session"""
+    try:
+        # List all files in the data directory to find matching file
+        response = s3_client.list_objects_v2(Bucket=S3_BUCKET, Prefix="ddt-data/")
+        
+        if 'Contents' not in response:
+            return jsonify({"error": "No experiment data found"}), 404
+        
+        # Look for file matching the pattern DDT{subject_id:04d}_ses{session}_*.csv
+        target_filename_prefix = f"DDT{subject_id:04d}_ses{session}_"
+        
+        matching_file = None
+        for obj in response['Contents']:
+            filename = obj['Key'].split('/')[-1]  # Get just the filename
+            if filename.startswith(target_filename_prefix) and filename.endswith('.csv'):
+                matching_file = obj['Key']
+                break
+        
+        if not matching_file:
+            return jsonify({"error": f"No data found for subject {subject_id}, session {session}"}), 404
+        
+        # Get the CSV file from S3 and return raw content
+        try:
+            csv_response = s3_client.get_object(Bucket=S3_BUCKET, Key=matching_file)
+            csv_content = csv_response['Body'].read().decode('utf-8')
+            
+            # Return raw CSV content with proper headers
+            response = make_response(csv_content)
+            response.headers['Content-Type'] = 'text/csv'
+            response.headers['Content-Disposition'] = f'inline; filename="{matching_file.split("/")[-1]}"'
+            return response
+            
+        except Exception as e:
+            logger.error(f"Error reading CSV file {matching_file}: {e}")
+            return jsonify({"error": "Error reading experiment data"}), 500
+        
+    except Exception as e:
+        logger.error(f"Error retrieving data for subject {subject_id}, session {session}: {e}")
+        return jsonify({"error": "Internal server error"}), 500
 
 
 @app.route("/start", methods=["POST"])
