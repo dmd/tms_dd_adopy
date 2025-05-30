@@ -21,10 +21,6 @@ cd aws-deploy
 ./deploy.sh
 ```
 
-## Local Development (Optional)
-For development/testing only:
-- Install dependencies: `pip install -r requirements.txt`
-- Run locally: `python ddt_web.py` (opens on http://localhost:5050/)
 
 ## Experiment Features
 - **Form Lockdown**: All form fields are readonly to prevent parameter tampering
@@ -39,7 +35,7 @@ For development/testing only:
 - `GET /next_design` - Get next trial parameters from ADO
 - `POST /response` - Submit trial response and update ADO
 - `GET /next_subject_id` - Get next available subject ID from S3 data
-- `GET /data/{subject_id}/{session}` - Retrieve experiment data as CSV
+- `GET /data/{subject_id}/{session}` - Retrieve experiment data as CSV (returns most recent if multiple files exist)
 - `GET /debug` - List active sessions (development)
 
 ## Session Management
@@ -48,14 +44,7 @@ For development/testing only:
 - Sessions auto-cleaned up after experiment completion
 - Engine state restored from trial history using `restore_engine_state()`
 
-## Legacy Desktop Version
-For PsychoPy-based desktop version:
-- Install PsychoPy (https://www.psychopy.org/download.html) and ADOpy (from GitHub: https://github.com/adopy/adopy, version 0.4.1)
-- Run `ddt_ado_new.py` on a Python console
-- Press <space> to proceed, <esc> to exit
-- Modify `instructions.yml` to change instructions
-
-** Data format **
+## Data Format
 Data are saved in csv format.
 The columns in a csv file will be as below:
 

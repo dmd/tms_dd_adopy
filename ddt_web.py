@@ -212,18 +212,20 @@ def get_experiment_data(subject_id, session):
         if 'Contents' not in response:
             return jsonify({"error": "No experiment data found"}), 404
         
-        # Look for file matching the pattern DDT{subject_id:04d}_ses{session}_*.csv
+        # Look for files matching the pattern DDT{subject_id:04d}_ses{session}_*.csv
         target_filename_prefix = f"DDT{subject_id:04d}_ses{session}_"
         
-        matching_file = None
+        matching_files = []
         for obj in response['Contents']:
             filename = obj['Key'].split('/')[-1]  # Get just the filename
             if filename.startswith(target_filename_prefix) and filename.endswith('.csv'):
-                matching_file = obj['Key']
-                break
+                matching_files.append(obj['Key'])
         
-        if not matching_file:
+        if not matching_files:
             return jsonify({"error": f"No data found for subject {subject_id}, session {session}"}), 404
+        
+        # Sort and get the most recent (last alphabetically)
+        matching_file = sorted(matching_files)[-1]
         
         # Get the CSV file from S3 and return raw content
         try:
@@ -359,7 +361,7 @@ def response():
 
     finished = len(exp.df) >= config["num_main_trials"]
     if finished:
-        # Save to S3 instead of local file
+        # Save to S3
         exp.save_record_to_s3(s3_client, S3_BUCKET)
         # Clean up completed experiment from S3
         try:
@@ -384,5 +386,5 @@ def lambda_handler(event, context):
     return handle_request(app, event, context)
 
 
-if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0", port=5050)
+# Application is designed for AWS Lambda deployment only
+# Local execution not supported due to S3 dependencies

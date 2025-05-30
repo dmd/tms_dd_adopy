@@ -1,7 +1,9 @@
 # DDT ADO Experiment - AWS Lambda Deployment
 
 ## Project Overview
-This is a web-based Delay Discounting Task (DDT) experiment using Adaptive Design Optimization (ADO) deployed on AWS Lambda. The experiment presents participants with choices between immediate smaller rewards and delayed larger rewards to measure their discounting behavior.
+This is a web-based Delay Discounting Task (DDT) experiment using Adaptive Design Optimization (ADO) designed exclusively for AWS Lambda deployment. The experiment presents participants with choices between immediate smaller rewards and delayed larger rewards to measure their discounting behavior.
+
+**Note**: This application requires AWS services (Lambda, S3, API Gateway) and cannot run locally due to its S3-based session storage architecture.
 
 ## Architecture
 - **Frontend**: HTML/JavaScript interface served from Lambda
@@ -58,7 +60,7 @@ cd aws-deploy
 - `GET /next_design` - Get next trial parameters from ADO
 - `POST /response` - Submit trial response and update ADO
 - `GET /next_subject_id` - Get next available 4-digit subject ID from S3 data
-- `GET /data/{subject_id}/{session}` - Retrieve experiment data as CSV
+- `GET /data/{subject_id}/{session}` - Retrieve experiment data as CSV (returns most recent if multiple files exist)
 - `GET /debug` - List active sessions (development)
 - `GET /debug/{session_id}` - Debug specific session (development)
 
@@ -78,9 +80,8 @@ The Lambda function needs these S3 permissions:
 
 ## Development Workflow
 1. Make changes to Python/JS files in main directory
-2. Test locally if needed: `python ddt_web.py` (runs on port 5050)
-3. Deploy to AWS: `cd aws-deploy && ./deploy.sh`
-4. Test at: https://ueizal1w40.execute-api.us-east-1.amazonaws.com/Prod/
+2. Deploy to AWS: `cd aws-deploy && ./deploy.sh`
+3. Test at: https://ueizal1w40.execute-api.us-east-1.amazonaws.com/Prod/
 
 ## Data Output
 - Experiment results saved to `s3://3e.org/ddt-data/{filename}.csv`

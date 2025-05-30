@@ -1,4 +1,4 @@
-"""Headless core logic for the DDT ADO experiment, decoupled from PsychoPy."""
+"""Core logic for the DDT ADO experiment."""
 import os
 import io
 from pathlib import Path
