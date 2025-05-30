@@ -15,8 +15,8 @@ This is a web-based Delay Discounting Task (DDT) experiment using Adaptive Desig
 ## Key Files
 - `ddt_web.py` - Main Flask application with Lambda handler
 - `ddt_core.py` - Core experiment logic and ADO implementation
-- `static/main.js` - Frontend experiment interface
-- `templates/` - HTML templates for the web interface
+- `static/main.js` - Frontend experiment interface with crosshairs and key bindings
+- `templates/` - HTML templates for the web interface (readonly form fields)
 - `aws-deploy/deploy.sh` - Non-interactive deployment script
 - `aws-deploy/setup.sh` - Initial AWS infrastructure setup
 - `.samignore` - Excludes development files from Lambda deployment
@@ -45,11 +45,20 @@ cd aws-deploy
 - Sessions auto-cleaned up after experiment completion
 - Engine state restored from trial history using `restore_engine_state()`
 
+### Experiment Configuration
+- **Form Lockdown**: All form fields are readonly/disabled to prevent user modifications
+- **Query Parameter Support**: URL supports individual parameters (subject_id, session, train_trials, main_trials, tutorial)
+- **Setup Parameter**: Single `setup` parameter with 5 comma-separated values overrides individual parameters
+- **Automatic Subject ID**: `/next_subject_id` endpoint scans S3 to assign next available 4-digit ID (starting from 1001)
+- **Data Retrieval**: `/data/{subject_id}/{session}` endpoint provides direct CSV download of experiment results
+
 ### API Endpoints
 - `GET /` - Main experiment interface
 - `POST /start` - Initialize new experiment session
 - `GET /next_design` - Get next trial parameters from ADO
 - `POST /response` - Submit trial response and update ADO
+- `GET /next_subject_id` - Get next available 4-digit subject ID from S3 data
+- `GET /data/{subject_id}/{session}` - Retrieve experiment data as CSV
 - `GET /debug` - List active sessions (development)
 - `GET /debug/{session_id}` - Debug specific session (development)
 
@@ -65,6 +74,7 @@ The Lambda function needs these S3 permissions:
 2. **403 Forbidden on API calls**: Fixed by adding `/Prod/` prefix to fetch URLs
 3. **Import errors**: All required imports added at module level
 4. **Memory limits**: Increased to 3008MB for ADO computations
+5. **Form parameter tampering**: Fixed by making all form fields readonly/disabled
 
 ## Development Workflow
 1. Make changes to Python/JS files in main directory
@@ -79,9 +89,12 @@ The Lambda function needs these S3 permissions:
 
 ## Testing & Debugging
 - Use `/debug` endpoint to see active sessions
-- Use `/debug/{session_id}` to test session loading
+- Use `/debug/{session_id}` to test session loading  
+- Use `/next_subject_id` to get next available subject ID
+- Use `/data/{subject_id}/{session}` to retrieve experiment results
 - Check CloudWatch logs: `aws logs tail /aws/lambda/ddt-sam-app-DdtWebFunction-* --since 5m`
 - Verify S3 objects: `aws s3 ls s3://3e.org/ddt-sessions/`
+- Verify data files: `aws s3 ls s3://3e.org/ddt-data/`
 
 ## Dependencies
 Key Python packages (see requirements.txt):
