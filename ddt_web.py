@@ -62,7 +62,6 @@ def next_subject_id():
 
 @app.route("/start", methods=["POST"])
 def start():
-    subject = int(request.form.get("subject_id"))
     session_num = int(request.form.get("session"))
     num_train = int(request.form.get("num_train_trials"))
     num_main = int(request.form.get("num_main_trials"))
@@ -70,11 +69,43 @@ def start():
 
     # Generate unique session ID for this experiment
     session_id = str(uuid.uuid4())
-
     time_now_iso = datetime.now().isoformat().replace(":", "-")[:-7]
     path_data = Path(__file__).parent / "data"
     path_data.mkdir(exist_ok=True)
-    path_output = path_data / f"DDT{subject:04d}_ses{session_num}_{time_now_iso}.csv"
+
+    # Handle subject ID assignment and file creation atomically
+    subject_id_param = request.form.get("subject_id")
+    if subject_id_param and subject_id_param.strip():
+        # Use provided subject ID
+        subject = int(subject_id_param)
+        path_output = path_data / f"DDT{subject:04d}_ses{session_num}_{time_now_iso}.csv"
+    else:
+        # Atomically assign next available ID and create file under lock
+        with experiments_lock:
+            used_ids = set()
+            for csv_file in path_data.glob("*.csv"):
+                filename = csv_file.name
+                # Look for pattern DDT####_ses#_timestamp.csv
+                if filename.startswith('DDT') and '_ses' in filename:
+                    try:
+                        subject_id_str = filename[3:7]  # Extract 4 digits after DDT
+                        if subject_id_str.isdigit():
+                            used_ids.add(int(subject_id_str))
+                    except (ValueError, IndexError):
+                        continue  # Skip files that don't match expected pattern
+            
+            # Find the next available 4-digit ID starting from 1001
+            subject = 1001
+            while subject in used_ids:
+                subject += 1
+                if subject > 9999:  # Safety check for 4-digit limit
+                    subject = 1001
+                    break
+            
+            # Create the file path and immediately create placeholder file to reserve the ID
+            path_output = path_data / f"DDT{subject:04d}_ses{session_num}_{time_now_iso}.csv"
+            # Create empty file to reserve this subject ID immediately
+            path_output.touch()
 
     # Create experiment instance for this session
     exp = DdtCore(subject, session_num, path_output)
