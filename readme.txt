@@ -1,13 +1,26 @@
 ** Task instruction **
-- First, install PsychoPy (https://www.psychopy.org/download.html) and ADOpy (from GitHub: https://github.com/adopy/adopy, version 0.4.1)
-- Run "ddt_ado_new.py" on a Python console to start the task.
-- Modify the participant ID and the number of trials in the subject information box as desired.
-- Alternatively, to run a web-based interface (no PsychoPy required), install Flask (pip install flask), then run "python ddt_web.py" and open http://localhost:5050/ in your browser.
+- Install the required dependencies: pip install -r requirements.txt
+- Run "python ddt_web.py" and open http://localhost:5050/ in your browser
+- The form automatically assigns the next available 4-digit subject ID starting from 1001
+- All form fields are locked to prevent accidental changes during data collection
+- Supports setup via query parameters for automated configuration
 
-In the instruction screen, press <space> to proceed to the next screen.
-You may revise "instructions.yml" to change the instructions.
+** Features **
+- Web-based delayed discounting task with adaptive design optimization (ADO)
+- Instant crosshairs feedback for improved user experience
+- Automatic subject ID assignment based on existing data files
+- Form lockdown and setup parameter support for research automation
+- Tutorial mode with configurable training trials
 
-Press <esc> before making a choice if you want to immediately close the task.
+** Setup Parameters **
+You can configure the experiment via URL parameters:
+- Individual parameters: ?subject_id=1001&session=1&num_train_trials=5&num_main_trials=40&show_tutorial=1
+- Setup parameter (5 comma-separated values): ?setup=1001,1,5,40,1
+
+** Controls **
+- Press 'z' to choose the left option
+- Press 'm' or '/' to choose the right option
+- In instruction screens, press <space> or <Enter> to proceed
 
 ** Data format **
 Data are saved in csv format.
