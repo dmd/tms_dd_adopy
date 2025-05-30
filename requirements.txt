@@ -3,3 +3,5 @@ adopy
 pandas
 numpy
 pyyaml
+boto3
+serverless-wsgi

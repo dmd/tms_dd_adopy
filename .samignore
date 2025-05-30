@@ -1,0 +1,12 @@
+.venv/
+aws-deploy/
+*.zip
+.git/
+__pycache__/
+*.pyc
+.env
+*.log
+data/
+CLAUDE.md
+readme*.md
+instructions.yml

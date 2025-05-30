@@ -1,5 +1,6 @@
 """Headless core logic for the DDT ADO experiment, decoupled from PsychoPy."""
 import os
+import io
 from pathlib import Path
 
 import numpy as np
@@ -98,3 +99,40 @@ class DdtCore:
             *['sd_' + p for p in self.model.params],
         ]
         self.df[cols].to_csv(self.path_output, sep='\t', index=False)
+    
+    def save_record_to_s3(self, s3_client, bucket_name):
+        """Save the experiment record directly to S3."""
+        cols = [
+            'subject', 'block', 'block_type', 'trial',
+            *self.task.designs,
+            'resp_ss', 'rt',
+            *['mean_' + p for p in self.model.params],
+            *['sd_' + p for p in self.model.params],
+        ]
+        
+        # Convert DataFrame to CSV string
+        csv_buffer = io.StringIO()
+        self.df[cols].to_csv(csv_buffer, sep='\t', index=False)
+        csv_content = csv_buffer.getvalue()
+        
+        # Upload to S3
+        s3_key = f"ddt-data/{self.path_output.name}"
+        s3_client.put_object(
+            Bucket=bucket_name,
+            Key=s3_key,
+            Body=csv_content.encode('utf-8'),
+            ContentType='text/csv'
+        )
+        
+        return s3_key
+    
+    def restore_engine_state(self):
+        """Restore the ADO engine state from the saved trials in df."""
+        if len(self.df) == 0:
+            return  # No trials to restore
+        
+        # Replay all trials to restore engine state
+        for _, row in self.df.iterrows():
+            design = {col: row[col] for col in self.task.designs if col in row}
+            resp_ll = 1 - row['resp_ss']  # Convert back to resp_ll for engine
+            self.engine.update(design, resp_ll)

@@ -1,0 +1,53 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+
+Resources:
+  DdtWebFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ..
+      Handler: ddt_web.lambda_handler
+      Runtime: python3.9
+      Timeout: 30
+      MemorySize: 1024
+      Environment:
+        Variables:
+          SECRET_KEY: "flask-secret-key-for-lambda"
+      Policies:
+        - S3WritePolicy:
+            BucketName: 3e.org
+        - Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action:
+                - s3:GetObject
+                - s3:ListBucket
+                - s3:DeleteObject
+              Resource: 
+                - "arn:aws:s3:::3e.org"
+                - "arn:aws:s3:::3e.org/*"
+            - Effect: Allow
+              Action:
+                - logs:CreateLogGroup
+                - logs:CreateLogStream
+                - logs:PutLogEvents
+              Resource: "arn:aws:logs:us-east-1:256268712194:*"
+      Events:
+        ApiRoot:
+          Type: Api
+          Properties:
+            Path: /
+            Method: ANY
+        ApiProxy:
+          Type: Api
+          Properties:
+            Path: /{proxy+}
+            Method: ANY
+
+Outputs:
+  DdtWebApi:
+    Description: "API Gateway endpoint URL"
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.us-east-1.amazonaws.com/Prod/"
+  DdtWebFunction:
+    Description: "DDT Lambda Function ARN"
+    Value: !GetAtt DdtWebFunction.Arn

@@ -67,7 +67,7 @@ async function runExperiment() {
 
     async function runTrials(n, mode) {
         for (let i = 0; i < n; i++) {
-            const res = await fetch(`/next_design?mode=${mode}&session_id=${CONFIG.session_id}`);
+            const res = await fetch(`${window.location.origin}/Prod/next_design?mode=${mode}&session_id=${CONFIG.session_id}`);
             if (!res.ok) {
                 const error = await res.json();
                 alert('Session expired or invalid. Please refresh the page and start again.');
@@ -76,7 +76,7 @@ async function runExperiment() {
             const { design, direction } = await res.json();
             await showFixation();
             const { resp_left, rt } = await showChoice(design, direction);
-            const respRes = await fetch('/response', {
+            const respRes = await fetch(`${window.location.origin}/Prod/response`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ mode, resp_left, direction, rt, session_id: CONFIG.session_id }),
