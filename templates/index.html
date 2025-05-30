@@ -24,7 +24,8 @@
             <input type="number" name="num_main_trials" value="40" required readonly>
         </label>
         <label>
-            <input type="checkbox" name="show_tutorial" checked disabled>
+            <input type="checkbox" id="show_tutorial_display" checked disabled>
+            <input type="hidden" name="show_tutorial" value="1">
             Show tutorial
         </label>
         <button type="submit">Start Experiment</button>
@@ -81,12 +82,19 @@
             }
             
             if (value !== null) {
-                const element = document.querySelector(`[name="${fieldName}"]`);
-                if (element) {
-                    if (element.type === 'checkbox') {
-                        element.checked = value === true || value.toString().toLowerCase() === 'true' || value === '1';
-                    } else {
-                        element.value = value;
+                if (fieldName === 'show_tutorial') {
+                    // Handle special case: display checkbox + hidden field
+                    const isChecked = value === true || value.toString().toLowerCase() === 'true' || value === '1';
+                    document.getElementById('show_tutorial_display').checked = isChecked;
+                    document.querySelector('[name="show_tutorial"]').value = isChecked ? '1' : '0';
+                } else {
+                    const element = document.querySelector(`[name="${fieldName}"]`);
+                    if (element) {
+                        if (element.type === 'checkbox') {
+                            element.checked = value === true || value.toString().toLowerCase() === 'true' || value === '1';
+                        } else {
+                            element.value = value;
+                        }
                     }
                 }
             }

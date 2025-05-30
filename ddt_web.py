@@ -65,7 +65,7 @@ def start():
     session_num = int(request.form.get("session"))
     num_train = int(request.form.get("num_train_trials"))
     num_main = int(request.form.get("num_main_trials"))
-    show_tutorial = bool(request.form.get("show_tutorial"))
+    show_tutorial = request.form.get("show_tutorial") == "1"
 
     # Generate unique session ID for this experiment
     session_id = str(uuid.uuid4())
