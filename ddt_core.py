@@ -70,7 +70,7 @@ class DdtCore:
         design = self.engine.get_design(mode)
         return {k: float(v) for k, v in design.items()}
 
-    def update_and_record(self, design, resp_ss, rt):
+    def update_and_record(self, design, resp_ss, resp_left, rt):
         resp_ll = 1 - resp_ss
         self.engine.update(design, resp_ll)
         means = {'mean_' + p: m for p, m in zip(self.model.params, self.engine.post_mean)}
@@ -84,6 +84,7 @@ class DdtCore:
             'trial': trial,
             **design,
             'resp_ss': resp_ss,
+            'resp_left': resp_left,
             'rt': rt,
             **means,
             **sds,
@@ -94,7 +95,7 @@ class DdtCore:
         cols = [
             'subject', 'session', 'block', 'block_type', 'trial',
             *self.task.designs,
-            'resp_ss', 'rt',
+            'resp_ss', 'resp_left', 'rt',
             *['mean_' + p for p in self.model.params],
             *['sd_' + p for p in self.model.params],
         ]

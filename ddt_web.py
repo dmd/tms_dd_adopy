@@ -218,7 +218,7 @@ def response():
     rt = float(data.get("rt"))
     resp_ss = resp_left if direction == 1 else 1 - resp_left
 
-    exp.update_and_record(last_design, resp_ss, rt)
+    exp.update_and_record(last_design, resp_ss, resp_left, rt)
     exp_data["last_design"] = None
 
     finished = len(exp.df) >= config["num_main_trials"]
