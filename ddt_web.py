@@ -3,11 +3,13 @@
 import random
 import json
 import uuid
+import pickle
+import os
 from pathlib import Path
 from datetime import datetime
-from threading import Lock
 
 import yaml
+import redis
 from flask import Flask, render_template, request, jsonify, session
 from flask import make_response
 
@@ -16,9 +18,12 @@ from ddt_core import DdtCore
 app = Flask(__name__)
 app.secret_key = "ddt-experiment-secret-key-change-in-production"
 
-# Thread-safe storage for active experiments
-experiments = {}
-experiments_lock = Lock()
+# Redis connection for multi-worker session storage
+redis_client = redis.Redis(
+    host=os.environ.get('REDIS_HOST', 'localhost'),
+    port=int(os.environ.get('REDIS_PORT', 6379)),
+    db=0
+)
 
 
 @app.route("/", methods=["GET"])
@@ -80,32 +85,31 @@ def start():
         subject = int(subject_id_param)
         path_output = path_data / f"DDT{subject:04d}_ses{session_num}_{time_now_iso}.csv"
     else:
-        # Atomically assign next available ID and create file under lock
-        with experiments_lock:
-            used_ids = set()
-            for csv_file in path_data.glob("*.csv"):
-                filename = csv_file.name
-                # Look for pattern DDT####_ses#_timestamp.csv
-                if filename.startswith('DDT') and '_ses' in filename:
-                    try:
-                        subject_id_str = filename[3:7]  # Extract 4 digits after DDT
-                        if subject_id_str.isdigit():
-                            used_ids.add(int(subject_id_str))
-                    except (ValueError, IndexError):
-                        continue  # Skip files that don't match expected pattern
-            
-            # Find the next available 4-digit ID starting from 1001
-            subject = 1001
-            while subject in used_ids:
-                subject += 1
-                if subject > 9999:  # Safety check for 4-digit limit
-                    subject = 1001
-                    break
-            
-            # Create the file path and immediately create placeholder file to reserve the ID
-            path_output = path_data / f"DDT{subject:04d}_ses{session_num}_{time_now_iso}.csv"
-            # Create empty file to reserve this subject ID immediately
-            path_output.touch()
+        # Use Redis for atomic subject ID assignment
+        used_ids = set()
+        for csv_file in path_data.glob("*.csv"):
+            filename = csv_file.name
+            # Look for pattern DDT####_ses#_timestamp.csv
+            if filename.startswith('DDT') and '_ses' in filename:
+                try:
+                    subject_id_str = filename[3:7]  # Extract 4 digits after DDT
+                    if subject_id_str.isdigit():
+                        used_ids.add(int(subject_id_str))
+                except (ValueError, IndexError):
+                    continue  # Skip files that don't match expected pattern
+        
+        # Find the next available 4-digit ID starting from 1001
+        subject = 1001
+        while subject in used_ids:
+            subject += 1
+            if subject > 9999:  # Safety check for 4-digit limit
+                subject = 1001
+                break
+        
+        # Create the file path and immediately create placeholder file to reserve the ID
+        path_output = path_data / f"DDT{subject:04d}_ses{session_num}_{time_now_iso}.csv"
+        # Create empty file to reserve this subject ID immediately
+        path_output.touch()
 
     # Create experiment instance for this session
     exp = DdtCore(subject, session_num, path_output)
@@ -125,14 +129,14 @@ def start():
         "session_id": session_id,
     }
 
-    # Store experiment data thread-safely
-    with experiments_lock:
-        experiments[session_id] = {
-            "exp": exp,
-            "config": config,
-            "last_design": None,
-            "created_at": datetime.now(),
-        }
+    # Store experiment data in Redis
+    experiment_data = {
+        "exp": exp,
+        "config": config,
+        "last_design": None,
+        "created_at": datetime.now(),
+    }
+    redis_client.setex(f"session:{session_id}", 7200, pickle.dumps(experiment_data))
 
     return render_template("experiment.html", config_json=json.dumps(config))
 
@@ -140,17 +144,24 @@ def start():
 @app.route("/next_design", methods=["GET"])
 def next_design():
     session_id = request.args.get("session_id")
-    if not session_id or session_id not in experiments:
-        return jsonify({"error": "Invalid session"}), 400
+    if not session_id:
+        return jsonify({"error": "Session expired or invalid. Please refresh the page and start again."}), 400
+    
+    # Get experiment data from Redis
+    exp_data_bytes = redis_client.get(f"session:{session_id}")
+    if not exp_data_bytes:
+        return jsonify({"error": "Session expired or invalid. Please refresh the page and start again."}), 400
+    
+    exp_data = pickle.loads(exp_data_bytes)
+    exp = exp_data["exp"]
 
-    with experiments_lock:
-        exp_data = experiments[session_id]
-        exp = exp_data["exp"]
-
-        mode = request.args.get("mode", "optimal")
-        engine_mode = "random" if mode == "train" else mode
-        design = exp.get_design(engine_mode)
-        exp_data["last_design"] = design
+    mode = request.args.get("mode", "optimal")
+    engine_mode = "random" if mode == "train" else mode
+    design = exp.get_design(engine_mode)
+    exp_data["last_design"] = design
+    
+    # Update Redis with new design
+    redis_client.setex(f"session:{session_id}", 7200, pickle.dumps(exp_data))
 
     direction = random.randint(0, 1)
     return jsonify({"design": design, "direction": direction})
@@ -160,48 +171,50 @@ def next_design():
 def response():
     data = request.get_json()
     session_id = data.get("session_id")
-    if not session_id or session_id not in experiments:
-        return jsonify({"error": "Invalid session"}), 400
+    if not session_id:
+        return jsonify({"error": "Session expired or invalid. Please refresh the page and start again."}), 400
+    
+    # Get experiment data from Redis
+    exp_data_bytes = redis_client.get(f"session:{session_id}")
+    if not exp_data_bytes:
+        return jsonify({"error": "Session expired or invalid. Please refresh the page and start again."}), 400
+    
+    exp_data = pickle.loads(exp_data_bytes)
+    exp = exp_data["exp"]
+    config = exp_data["config"]
+    last_design = exp_data["last_design"]
 
-    with experiments_lock:
-        exp_data = experiments[session_id]
-        exp = exp_data["exp"]
-        config = exp_data["config"]
-        last_design = exp_data["last_design"]
-
-        mode = data.get("mode")
-        if mode == "train":
-            exp_data["last_design"] = None
-            return jsonify({"success": True})
-
-        resp_left = int(data.get("resp_left"))
-        direction = int(data.get("direction"))
-        rt = float(data.get("rt"))
-        resp_ss = resp_left if direction == 1 else 1 - resp_left
-
-        exp.update_and_record(last_design, resp_ss, rt)
+    mode = data.get("mode")
+    if mode == "train":
         exp_data["last_design"] = None
+        redis_client.setex(f"session:{session_id}", 7200, pickle.dumps(exp_data))
+        return jsonify({"success": True})
 
-        finished = len(exp.df) >= config["num_main_trials"]
-        if finished:
-            exp.save_record()
-            # Clean up completed experiment
-            del experiments[session_id]
+    resp_left = int(data.get("resp_left"))
+    direction = int(data.get("direction"))
+    rt = float(data.get("rt"))
+    resp_ss = resp_left if direction == 1 else 1 - resp_left
+
+    exp.update_and_record(last_design, resp_ss, rt)
+    exp_data["last_design"] = None
+
+    finished = len(exp.df) >= config["num_main_trials"]
+    if finished:
+        exp.save_record()
+        # Clean up completed experiment
+        redis_client.delete(f"session:{session_id}")
+    else:
+        # Update Redis with cleared design
+        redis_client.setex(f"session:{session_id}", 7200, pickle.dumps(exp_data))
 
     return jsonify({"finished": finished})
 
 
 @app.before_request
 def cleanup_old_sessions():
-    """Clean up abandoned sessions older than 2 hours."""
-    with experiments_lock:
-        now = datetime.now()
-        to_remove = []
-        for sid, exp_data in experiments.items():
-            if (now - exp_data["created_at"]).total_seconds() > 7200:  # 2 hours
-                to_remove.append(sid)
-        for sid in to_remove:
-            del experiments[sid]
+    """Clean up abandoned sessions older than 2 hours (handled by Redis TTL)."""
+    # Redis TTL automatically handles cleanup, no action needed
+    pass
 
 
 if __name__ == "__main__":
