@@ -164,6 +164,13 @@
             }
         }
         
+        // Helper function to validate integer values
+        function isValidInteger(value) {
+            if (value === null || value === undefined || value === '') return false;
+            const num = parseInt(value, 10);
+            return !isNaN(num) && num.toString() === value.toString();
+        }
+        
         // Update display elements with values from query parameters
         function updateDisplays() {
             fields.forEach(fieldName => {
@@ -175,6 +182,13 @@
                 } else {
                     const paramValue = urlParams.get(fieldName);
                     value = paramValue !== null ? paramValue : null;
+                }
+                
+                // Validate integer fields and ignore invalid values
+                if (['subject_id', 'session', 'num_train_trials', 'num_main_trials'].includes(fieldName)) {
+                    if (value !== null && !isValidInteger(value)) {
+                        value = null; // Ignore non-integer values
+                    }
                 }
                 
                 // Update display elements

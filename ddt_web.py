@@ -67,9 +67,22 @@ def next_subject_id():
 
 @app.route("/start", methods=["POST"])
 def start():
-    session_num = int(request.form.get("session"))
-    num_train = int(request.form.get("num_train_trials"))
-    num_main = int(request.form.get("num_main_trials"))
+    # Convert form values to integers, ignoring invalid values
+    try:
+        session_num = int(request.form.get("session"))
+    except (ValueError, TypeError):
+        session_num = 1  # default value
+    
+    try:
+        num_train = int(request.form.get("num_train_trials"))
+    except (ValueError, TypeError):
+        num_train = 10  # default value
+    
+    try:
+        num_main = int(request.form.get("num_main_trials"))
+    except (ValueError, TypeError):
+        num_main = 50  # default value
+    
     show_tutorial = request.form.get("show_tutorial") == "1"
 
     # Generate unique session ID for this experiment
@@ -81,10 +94,15 @@ def start():
     # Handle subject ID assignment and file creation atomically
     subject_id_param = request.form.get("subject_id")
     if subject_id_param and subject_id_param.strip():
-        # Use provided subject ID
-        subject = int(subject_id_param)
-        path_output = path_data / f"DDT{subject:04d}_ses{session_num}_{time_now_iso}.csv"
-    else:
+        # Use provided subject ID if it's a valid integer
+        try:
+            subject = int(subject_id_param)
+            path_output = path_data / f"DDT{subject:04d}_ses{session_num}_{time_now_iso}.csv"
+        except (ValueError, TypeError):
+            # If invalid, fall through to auto-assignment
+            subject_id_param = None
+    
+    if not subject_id_param or not subject_id_param.strip():
         # Use Redis for atomic subject ID assignment
         used_ids = set()
         for csv_file in path_data.glob("*.csv"):
