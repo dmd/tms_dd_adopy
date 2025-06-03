@@ -33,7 +33,7 @@ train_after: |
 
 main_before: |
 
-  The main session has {} trials.
+  Session {} has {} trials.
   
   
   Press the <b>space</b> key when you are ready.
@@ -43,3 +43,8 @@ outro: |
 
 
   Thank you again for the participation.
+
+# Session progression messages
+session_start_single: "Press space to begin session 1."
+session_start_multi: "Press space to proceed to session {} of {}."
+session_complete: "Session {} complete. You will now proceed to session {} of {}. Press space to continue."

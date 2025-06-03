@@ -69,9 +69,9 @@ def next_subject_id():
 def start():
     # Convert form values to integers, ignoring invalid values
     try:
-        session_num = int(request.form.get("session"))
+        session_count = int(request.form.get("session_count"))
     except (ValueError, TypeError):
-        session_num = 1  # default value
+        session_count = 2  # default value
     
     try:
         num_train = int(request.form.get("num_train_trials"))
@@ -97,7 +97,10 @@ def start():
         # Use provided subject ID if it's a valid integer
         try:
             subject = int(subject_id_param)
-            path_output = path_data / f"DDT{subject:04d}_ses{session_num}_{time_now_iso}.csv"
+            # For multi-session, we'll determine current session based on existing files
+            existing_sessions = len([f for f in path_data.glob(f"DDT{subject:04d}_ses*_*.csv") if f.stat().st_size > 0])
+            current_session = existing_sessions + 1
+            path_output = path_data / f"DDT{subject:04d}_ses{current_session}_{time_now_iso}.csv"
         except (ValueError, TypeError):
             # If invalid, fall through to auto-assignment
             subject_id_param = None
@@ -124,22 +127,24 @@ def start():
                 subject = 1001
                 break
         
-        # Create the file path and immediately create placeholder file to reserve the ID
-        path_output = path_data / f"DDT{subject:04d}_ses{session_num}_{time_now_iso}.csv"
+        # For new subjects, always start with session 1
+        current_session = 1
+        path_output = path_data / f"DDT{subject:04d}_ses{current_session}_{time_now_iso}.csv"
         # Create empty file to reserve this subject ID immediately
         path_output.touch()
 
     # Create experiment instance for this session
-    exp = DdtCore(subject, session_num, path_output)
+    exp = DdtCore(subject, current_session, path_output)
 
     instr_path = Path(__file__).parent / "instructions.yml"
     with open(instr_path, "r", encoding="utf-8") as f:
         instructions = yaml.safe_load(f)
-    instructions["main_before"] = instructions["main_before"].format(num_main)
+    # Don't format main_before here - let the frontend handle it with session number and trial count
 
     config = {
         "subject_id": subject,
-        "session": session_num,
+        "session_count": session_count,
+        "current_session": current_session,
         "num_train_trials": num_train,
         "num_main_trials": num_main,
         "show_tutorial": show_tutorial,
@@ -219,13 +224,40 @@ def response():
     finished = len(exp.df) >= config["num_main_trials"]
     if finished:
         exp.save_record()
-        # Clean up completed experiment
-        redis_client.delete(f"session:{session_id}")
+        
+        # Check if we need to start a new session
+        current_session = config.get("current_session", 1)
+        session_count = config.get("session_count", 1)
+        
+        if current_session < session_count:
+            # Create new experiment instance for next session
+            next_session = current_session + 1
+            time_now_iso = datetime.now().isoformat().replace(":", "-")[:-7]
+            path_data = Path(__file__).parent / "data"
+            path_output = path_data / f"DDT{config['subject_id']:04d}_ses{next_session}_{time_now_iso}.csv"
+            
+            new_exp = DdtCore(config["subject_id"], next_session, path_output)
+            
+            # Update config for next session
+            config["current_session"] = next_session
+            
+            # Update experiment data
+            exp_data["exp"] = new_exp
+            exp_data["config"] = config
+            exp_data["last_design"] = None
+            
+            # Save updated experiment data
+            redis_client.setex(f"session:{session_id}", 7200, pickle.dumps(exp_data))
+            
+            return jsonify({"finished": False, "new_session": True, "current_session": next_session})
+        else:
+            # All sessions complete
+            redis_client.delete(f"session:{session_id}")
+            return jsonify({"finished": True})
     else:
         # Update Redis with cleared design
         redis_client.setex(f"session:{session_id}", 7200, pickle.dumps(exp_data))
-
-    return jsonify({"finished": finished})
+        return jsonify({"finished": False})
 
 
 @app.before_request

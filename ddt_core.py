@@ -78,6 +78,7 @@ class DdtCore:
         trial = len(self.df) + 1
         row = {
             'subject': self.subject,
+            'session': self.session,
             'block': self.block,
             'block_type': self.block_type,
             'trial': trial,
@@ -91,7 +92,7 @@ class DdtCore:
 
     def save_record(self):
         cols = [
-            'subject', 'block', 'block_type', 'trial',
+            'subject', 'session', 'block', 'block_type', 'trial',
             *self.task.designs,
             'resp_ss', 'rt',
             *['mean_' + p for p in self.model.params],

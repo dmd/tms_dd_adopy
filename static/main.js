@@ -94,9 +94,25 @@ async function runExperiment() {
                 throw new Error(error.error || 'Session error');
             }
             
+            const respData = await respRes.json();
+            
+            // Check if we started a new session
+            if (respData.new_session) {
+                CONFIG.current_session = respData.current_session;
+            }
+            
+            // Return early if this session is finished but there are more sessions
+            if (respData.finished === false && respData.new_session) {
+                return { sessionComplete: true, allComplete: false };
+            } else if (respData.finished === true) {
+                return { sessionComplete: true, allComplete: true };
+            }
+            
             // The fixation cross stays visible while processing the next trial
             // This provides continuous feedback during the 1-2 second ADO computation
         }
+        
+        return { sessionComplete: false, allComplete: false };
     }
 
     function showChoice(design, direction) {
@@ -150,8 +166,33 @@ async function runExperiment() {
         await showScreen(instr.train_after);
     }
 
-    await showScreen(instr.main_before);
-    await runTrials(CONFIG.num_main_trials, 'optimal');
+    // Run all sessions
+    while (CONFIG.current_session <= CONFIG.session_count) {
+        // Show pre-main session message only for first session or when coming from between-session screen
+        if (CONFIG.current_session === 1) {
+            if (CONFIG.session_count === 1) {
+                await showScreen(instr.session_start_single);
+            } else {
+                await showScreen(instr.session_start_multi.replace('{}', CONFIG.current_session).replace('{}', CONFIG.session_count));
+            }
+        }
+        
+        await showScreen(instr.main_before.replace('{}', CONFIG.current_session).replace('{}', CONFIG.num_main_trials));
+        
+        const result = await runTrials(CONFIG.num_main_trials, 'optimal');
+        
+        // Check the result from runTrials
+        if (result.allComplete) {
+            // All sessions are complete
+            break;
+        } else if (result.sessionComplete && !result.allComplete) {
+            // This session is complete, but there are more sessions
+            const nextSession = CONFIG.current_session;  // current_session was already updated by the response handler
+            const prevSession = nextSession - 1;
+            await showScreen(instr.session_complete.replace('{}', prevSession).replace('{}', nextSession).replace('{}', CONFIG.session_count));
+            // Don't show the "press space to proceed" message again - go directly to main_before
+        }
+    }
 
     await showScreen(instr.outro);
 }

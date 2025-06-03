@@ -106,8 +106,8 @@
                     <span class="data-value pending" id="subject_id_display">Auto-assigned</span>
                 </div>
                 <div class="data-item">
-                    <span class="data-label">Session Number</span>
-                    <span class="data-value" id="session_display">1</span>
+                    <span class="data-label">Number of Sessions</span>
+                    <span class="data-value" id="session_display">2</span>
                 </div>
                 <div class="data-item">
                     <span class="data-label">Training Trials</span>
@@ -132,7 +132,7 @@
         <form action="{{ url_for('start') }}" method="post">
             <!-- Hidden fields to maintain form functionality -->
             <input type="hidden" name="subject_id" id="subject_id_hidden">
-            <input type="hidden" name="session" id="session_hidden" value="1">
+            <input type="hidden" name="session_count" id="session_count_hidden" value="2">
             <input type="hidden" name="num_train_trials" id="num_train_trials_hidden" value="5">
             <input type="hidden" name="num_main_trials" id="num_main_trials_hidden" value="40">
             <input type="hidden" name="show_tutorial" id="show_tutorial_hidden" value="1">
@@ -146,7 +146,7 @@
         const urlParams = new URLSearchParams(window.location.search);
         
         // Fields to check for query parameters
-        const fields = ['subject_id', 'session', 'num_train_trials', 'num_main_trials', 'show_tutorial'];
+        const fields = ['subject_id', 'session_count', 'num_train_trials', 'num_main_trials', 'show_tutorial'];
         
         // Check for setup parameter first
         const setupParam = urlParams.get('setup');
@@ -156,7 +156,7 @@
             if (parts.length === 5) {
                 setupValues = {
                     subject_id: parts[0].trim(),
-                    session: parts[1].trim(),
+                    session_count: parts[1].trim(),
                     num_train_trials: parts[2].trim(),
                     num_main_trials: parts[3].trim(),
                     show_tutorial: parts[4].trim() === '1'
@@ -185,7 +185,7 @@
                 }
                 
                 // Validate integer fields and ignore invalid values
-                if (['subject_id', 'session', 'num_train_trials', 'num_main_trials'].includes(fieldName)) {
+                if (['subject_id', 'session_count', 'num_train_trials', 'num_main_trials'].includes(fieldName)) {
                     if (value !== null && !isValidInteger(value)) {
                         value = null; // Ignore non-integer values
                     }
@@ -216,9 +216,9 @@
                         hiddenEl.value = '0';
                     }
                 } else {
-                    // Handle other fields (session, num_train_trials, num_main_trials)
-                    const displayEl = document.getElementById(`${fieldName}_display`);
-                    const hiddenEl = document.getElementById(`${fieldName}_hidden`);
+                    // Handle other fields (session_count, num_train_trials, num_main_trials)
+                    const displayEl = document.getElementById(fieldName === 'session_count' ? 'session_display' : `${fieldName}_display`);
+                    const hiddenEl = document.getElementById(fieldName === 'session_count' ? 'session_count_hidden' : `${fieldName}_hidden`);
                     
                     if (value !== null) {
                         displayEl.textContent = value;
