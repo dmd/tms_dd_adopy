@@ -143,11 +143,21 @@ async function runExperiment() {
                     const resp_left = e.key === 'z' ? 1 : 0;
                     document.removeEventListener('keydown', onKey);
                     
-                    // Immediately show fixation cross for user feedback
-                    container.innerHTML = '<div class="fixation">+</div>';
-                    window.scrollTo(0, 0);
+                    // Highlight the chosen option with green background
+                    const chosenSide = resp_left ? 'left' : 'right';
+                    const chosenElement = container.querySelector(`.option.${chosenSide}`);
+                    if (chosenElement) {
+                        chosenElement.style.backgroundColor = 'green';
+                    }
                     
-                    resolve({ resp_left, rt });
+                    // Wait 1.5 seconds before proceeding
+                    setTimeout(() => {
+                        // Show fixation cross
+                        container.innerHTML = '<div class="fixation">+</div>';
+                        window.scrollTo(0, 0);
+                        
+                        resolve({ resp_left, rt });
+                    }, 1500);
                 }
             }
             document.addEventListener('keydown', onKey);
