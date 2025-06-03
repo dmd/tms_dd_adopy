@@ -6,7 +6,7 @@ services:
   ddt-app:
     build: .
     ports:
-      - "5050:5050"
+      - "127.0.0.1:5050:5050"
     volumes:
       - ./data:/app/data
     environment:
