@@ -173,19 +173,12 @@ async function runExperiment() {
 
     if (CONFIG.show_tutorial) {
         await runTrials(CONFIG.num_train_trials, 'train');
-        await showScreen(instr.train_after);
+        await showScreen(instr.train_after.replace('{}', CONFIG.session_count));
     }
 
     // Run all sessions
     while (CONFIG.current_session <= CONFIG.session_count) {
-        // Show pre-main session message only for first session or when coming from between-session screen
-        if (CONFIG.current_session === 1) {
-            if (CONFIG.session_count === 1) {
-                await showScreen(instr.session_start_single);
-            } else {
-                await showScreen(instr.session_start_multi.replace('{}', CONFIG.current_session).replace('{}', CONFIG.session_count));
-            }
-        }
+        // Skip session_start screens for session 1
         
         await showScreen(instr.main_before.replace('{}', CONFIG.current_session).replace('{}', CONFIG.num_main_trials));
         
