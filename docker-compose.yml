@@ -13,6 +13,7 @@ services:
       - FLASK_ENV=production
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - SCRIPT_NAME=/tms_dd_adopy
     depends_on:
       - redis
     restart: unless-stopped

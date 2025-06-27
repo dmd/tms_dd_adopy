@@ -72,7 +72,7 @@ async function runExperiment() {
                 await showFixation();
             }
             
-            const res = await fetch(`/next_design?mode=${mode}&session_id=${CONFIG.session_id}`);
+            const res = await fetch(`next_design?mode=${mode}&session_id=${CONFIG.session_id}`);
             if (!res.ok) {
                 const error = await res.json();
                 alert('Session expired or invalid. Please refresh the page and start again.');
@@ -83,7 +83,7 @@ async function runExperiment() {
             const { resp_left, rt } = await showChoice(design, direction);
             // Note: fixation cross is now shown immediately when user presses key
             
-            const respRes = await fetch('/response', {
+            const respRes = await fetch('response', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ mode, resp_left, direction, rt, session_id: CONFIG.session_id }),
